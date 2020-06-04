@@ -306,6 +306,114 @@ Selector open = Selector.open();
 
 ## 4）示例
 
+我们之前写的都是基于阻塞模式下的NIO，那么NIO是非阻塞的一个IO，那我们具体需要怎么做？
+
+首先我们不能使用FileChannel，因为上面也说了FileChannel是没有方法把它切换到非阻塞模式下的，那么我们以SocketChannel为例说明
+
+先写一个阻塞模式下的完全示例
+
+```java
+@Test
+    public void client() throws IOException {
+
+        SocketChannel socketChannel = SocketChannel.open(new InetSocketAddress("127.0.0.1", 8888));
+        //分配内存空间
+        ByteBuffer buffer = ByteBuffer.allocate(1024);
+        System.out.println(LocalDateTime.now().getDayOfWeek().toString());
+        //读取数据
+        buffer.put("发送数据".getBytes());
+        //一定要切换模式，不然在write的时候是没有数据内容的
+        buffer.flip();
+        //发送到服务器
+        int write = socketChannel.write(buffer);
+        System.out.println(new String(buffer.array(), 0, write));
+        //关闭通道
+        socketChannel.close();
+    }
+
+    @Test
+    public void server() throws IOException{
+        ServerSocketChannel channel = ServerSocketChannel.open();
+        //监听端口号
+        channel.bind(new InetSocketAddress(8888));
+        //获取channel
+        SocketChannel socketChannel = channel.accept();
+        //分配缓冲区大小
+        ByteBuffer buffer = ByteBuffer.allocate(1024);
+        //读到buffer中
+        int length = socketChannel.read(buffer);
+        //切换模式
+        buffer.flip();
+        //写出buffer中数据
+        System.out.println("22" + new String(buffer.array(), 0, length));
+        //关闭通道
+        channel.close();
+        socketChannel.close();
+    }
+```
+
+为什么说这个是阻塞的呢，当我们服务端没有收到的时候，线程就一直在等待，那么就不能去干别的事情，客户端也是一样的
+
+加入selector后的非阻塞式
+
+```java
+@Test
+    public void send() throws IOException {
+        SocketChannel socketChannel = SocketChannel.open(new InetSocketAddress("127.0.0.1", 8888));
+        socketChannel.configureBlocking(false);
+        //分配内存空间
+        ByteBuffer buffer = ByteBuffer.allocate(1024);
+        System.out.println(LocalDateTime.now().getDayOfWeek().toString());
+        //读取数据
+        buffer.put(LocalDateTime.now().getDayOfWeek().toString().getBytes());
+        //一定要切换模式，不然在write的时候是没有数据内容的
+        buffer.flip();
+        //发送到服务器
+        int write = socketChannel.write(buffer);
+        System.out.println(new String(buffer.array(), 0, write));
+        //关闭通道
+        socketChannel.close();
+    }
+
+    @Test
+    public void recver() throws IOException {
+        ServerSocketChannel channel = ServerSocketChannel.open();
+        //监听端口号
+        channel.bind(new InetSocketAddress(8888));
+        //获取channel
+        channel.configureBlocking(false);
+        Selector selector = Selector.open();
+        channel.register(selector, SelectionKey.OP_ACCEPT);
+        //用while循环是因为while循环可以改变长度 for循环做不到
+        while (selector.select() > 0){
+            Iterator<SelectionKey> iterator = selector.selectedKeys().iterator();
+            while (iterator.hasNext()){
+                SelectionKey selectionKey = iterator.next();
+                if (selectionKey.isAcceptable()){
+                    SocketChannel socketChannel = channel.accept();
+                    socketChannel.configureBlocking(false);
+                    socketChannel.register(selector, SelectionKey.OP_READ);
+                } else if (selectionKey.isReadable()){
+                    SocketChannel socketChannel = (SocketChannel) selectionKey.channel();
+                    ByteBuffer byteBuffer = ByteBuffer.allocate(1024);
+                    int len = 0;
+                    if (( len = socketChannel.read(byteBuffer)) > 0){
+                        byteBuffer.flip();
+                        System.out.println(new String(byteBuffer.array(), 0, len));
+                        byteBuffer.clear();
+                    }
+
+                }
+            }
+            //一定要romove 不然会一直有
+            iterator.remove();
+        }
+        selector.close();
+    }
+```
+
+注意，这里的selector是阻塞的
+
 ```java
 public void SelectorTest() throws Exception{
         Selector selector = Selector.open();
@@ -341,3 +449,4 @@ public void SelectorTest() throws Exception{
     }
 ```
 
+这只是一个学习笔记而已。为学习netty做基础
