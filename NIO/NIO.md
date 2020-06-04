@@ -137,6 +137,8 @@ Selector的存在就允许单个线程去处理出多Channel，为什么呢？�
 
 ## 2）capacity、limit和position
 
+![](buffer.jpg)
+
 在用法上面说到了几个方法，他们都去改变了limit、position的值。这里就拿这几个属性来说下Buffer的原理。
 
 ​	![](..\NIO\Buffer图解.png)
