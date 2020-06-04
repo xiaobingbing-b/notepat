@@ -29,6 +29,7 @@ NIO虽然有很多类和组件，但是核心却是由Channel、Buffer和Selecto
 ## 1）Channel和Buffer
 
 为什么要把这两个放在一起呢？首先看下下面这个图你也许就能够明白了
+<img src="..\NIO\Channels和Buffers.png"/>
 
 ![](..\NIO\Channels和Buffers.png)
 
